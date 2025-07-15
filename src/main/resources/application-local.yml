@@ -1,0 +1,75 @@
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: application/json
+    min-response-size: 2048
+  error:
+    include-exception: true
+    include-stacktrace: always
+    include-binding-errors: always
+    include-message: always
+  servlet:
+    context-path: /sico/check-inline/api/v1/
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 2MB
+      max-request-size: 15MB
+  config:
+    activate:
+      on-profile: local
+  application:
+    name: checkonline-api
+  main:
+    banner-mode: off
+    allow-bean-definition-overriding: true
+  datasource:
+    driver-class-name: com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url: jdbc:sqlserver://SQLDEV01:1433;databaseName=ccbdw;encrypt=false
+    username: usConsultaSico
+    password: k8u/trEk*8
+  jpa:
+    show-sql: true
+    open-in-view: false
+    database-platform: org.hibernate.dialect.SQLServerDialect
+    hibernate:
+      ddl-auto: none
+      naming:
+        physical-strategy: org.hibernate.boot.model.naming.PhysicalNamingStrategyStandardImpl
+        implicit-strategy: org.hibernate.boot.model.naming.ImplicitNamingStrategyLegacyJpaImpl
+    properties:
+      hibernate.jdbc.batch_size: 1000
+      hibernate.order_inserts: true
+      hibernate.order_updates: true
+      hibernate.query.fail_on_pagination_over_collection_fetch: true
+      hibernate.query.in_clause_parameter_padding: true
+      hibernate.query.plan_cache_max_size: 4096
+  devtools:
+    livereload.enabled: true
+
+management:
+  endpoints:
+    web.base-path: /console
+    web.exposure.include: "*"
+
+logging:
+  level:
+    root: INFO
+    web: INFO
+    org.springframework.web: TRACE
+    org.hibernate: ERROR
+
+app:
+  employees.calculation.years: ${YEARS_EMPLOYEES_CALCULATION}
+  laft:
+    api:
+      lambda:
+        url-base: ${PathLaftVerificationLambda}
+        path: /generate-laft-request
+    verification:
+      credit-value-by-request: ${CreditValueQuery:1}
+      time-in-hour: ${TimeProcessedQueryLaft:1}
+      limit-max-request-by-bulk-upload: ${LimitMaximumPermittedRequestQueryLaft:200}
+      size-bulk-upload: ${SizePermittedBulkUpload:200}
