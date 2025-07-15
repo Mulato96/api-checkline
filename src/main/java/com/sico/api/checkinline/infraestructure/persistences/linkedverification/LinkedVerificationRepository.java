@@ -12,84 +12,70 @@ import java.util.List;
 public interface LinkedVerificationRepository extends JpaRepository<LinkedVerificationEntity, Long> {
 
     @Query(value = """
-        SELECT DISTINCT
-            cli.ID_CLIENTE AS clientId,
-            RTRIM(CASE WHEN cli.ID_TIPO_IDENTIFICACION IS NULL THEN '' ELSE CONVERT(nvarchar(2), cli.ID_TIPO_IDENTIFICACION) END) AS clientIdentificationType,
-            RTRIM(DBO.COIFX_QUITAR_CEROS(cli.NRO_IDENTIFICACION)) AS clientIdentification,
-            RTRIM(cli.NOMBRE_CLIENTE) AS clientName,
-            vin.ID_CLIENTE AS employerClientId,
-            RTRIM(CASE WHEN emp.ID_TIPO_IDENTIFICACION IS NULL THEN '' ELSE CONVERT(nvarchar(2), emp.ID_TIPO_IDENTIFICACION) END) AS employerIdentificationType,
-            RTRIM(ISNULL(LTRIM(RTRIM(CONVERT(nvarchar(4), ident.DESC_TIPO_IDENTIFICACION))), '')) AS employerIdentificationTypeDescription,
-            RTRIM(ISNULL(DBO.COIFX_QUITAR_CEROS(emp.NRO_IDENTIFICACION), '')) AS employerIdentification,
-            RTRIM(ISNULL(LTRIM(RTRIM(emp.NOMBRE_CLIENTE)), '')) AS employerName,
-            RTRIM(CASE 
-                WHEN (SELECT E.desc_estado_matricula FROM lu_estado_matricula E WITH(NOLOCK) WHERE E.id_estado_matricula = mat.id_estado_matricula) = 'Inscrip activa' THEN 'INSCRIP ACTIVA'
-                WHEN (SELECT E.desc_estado_matricula FROM lu_estado_matricula E WITH(NOLOCK) WHERE E.id_estado_matricula = mat.id_estado_matricula) = 'Inscrip canc' THEN 'CANCELADA'
-                ELSE UPPER((SELECT E.desc_estado_matricula FROM lu_estado_matricula E WITH(NOLOCK) WHERE E.id_estado_matricula = mat.id_estado_matricula))
-            END) AS status,
-            RTRIM(UPPER((SELECT desc_tipo_sociedad FROM lu_tipo_sociedad WITH(NOLOCK) WHERE id_tipo_sociedad = mat.id_tipo_sociedad))) AS societyType,
-            mat.id_importador_exportador AS importerExporterId,
-            RTRIM('4') AS chamberId,
-            RTRIM('BOGOTA') AS chamberName,
-            RTRIM(mat.NRO_MATRICULA) AS registrationNumber,
-            vin.ID_CARGO AS positionId,
-            RTRIM(ISNULL(
-                (SELECT SUBSTRING(RTRIM(LTRIM(G.Des_Cargo)), 1, 40) FROM lu_Cargos G WHERE CONVERT(nvarchar(5), G.Id_Cargo) = SUBSTRING(vin.id_cargo, 3, 4)),
-                (ISNULL((SELECT Q.desc_tipo_vinculo FROM lu_tipo_vinculo Q WITH(NOLOCK) WHERE Q.id_tipo_vinculo = vin.id_tipo_vinculo), ''))
-            )) AS positionDescription,
-            vin.ID_TIPO_VINCULO AS linkTypeId,
-            RTRIM(tvinc.DESC_TIPO_VINCULO) AS linkTypeDescription,
-            RTRIM(CONVERT(nvarchar(10), vin.FECHA_REGISTRO_VINCULO, 103)) AS linkDate
-        FROM LU_CLIENTE cli WITH(NOLOCK)
-        INNER JOIN LU_VINCULADOS vin WITH(NOLOCK)
-            ON cli.ID_CLIENTE = vin.ID_CLIENTE_VINCULADOR
-        INNER JOIN LU_MATRICULADO mat WITH(NOLOCK)
-            ON mat.ID_MATRICULADO = vin.ID_MATRICULADO
-        INNER JOIN FT_CERTIFICAS certifica
-            ON mat.id_matriculado = certifica.id_matriculado
-        INNER JOIN LU_CLIENTE emp WITH(NOLOCK)
-            ON emp.ID_CLIENTE = mat.ID_CLIENTE
-        LEFT JOIN LU_TIPO_IDENTIFICACION ident WITH(NOLOCK) 
-            ON ident.ID_TIPO_IDENTIFICACION = emp.ID_TIPO_IDENTIFICACION
-        LEFT JOIN LU_CARGOS carg WITH(NOLOCK)
-            ON CAST(ISNULL(vin.ID_CARGO, 0) AS NUMERIC) = carg.ID_CARGO
-        LEFT JOIN LU_TIPO_VINCULO tvinc WITH(NOLOCK)
-            ON vin.ID_TIPO_VINCULO = tvinc.ID_TIPO_VINCULO
-        WHERE 1 = 1
-            AND cli.ID_TIPO_IDENTIFICACION = CASE WHEN :identificationType = '0' THEN cli.ID_TIPO_IDENTIFICACION ELSE :identificationType END
-            AND cli.NRO_IDENTIFICACION = :identificationNumber
-            AND certifica.txt_certifica LIKE '%' + CAST(TRIM(DBO.COIFX_QUITAR_CEROS(:identificationNumber)) AS nvarchar(50)) + '%'
-            AND mat.id_estado_matricula NOT IN (2, 9)
-            AND (
-                mat.id_tipo_sociedad NOT IN (16, 4, 7)
-                OR (mat.id_tipo_sociedad IN (16)
-                    AND tvinc.id_tipo_vinculo NOT IN (SELECT id_tipo_vinculo FROM LU_TIPO_VINCULO WHERE desc_tipo_vinculo LIKE '%socio%' OR id_tipo_vinculo = 1140)
+        WITH LinkedVerificationCTE AS (
+            SELECT
+                cli.ID_CLIENTE AS clientId,
+                RTRIM(CASE WHEN cli.ID_TIPO_IDENTIFICACION IS NULL THEN '' ELSE CONVERT(nvarchar(2), cli.ID_TIPO_IDENTIFICACION) END) AS clientIdentificationType,
+                RTRIM(DBO.COIFX_QUITAR_CEROS(cli.NRO_IDENTIFICACION)) AS clientIdentification,
+                RTRIM(cli.NOMBRE_CLIENTE) AS clientName,
+                vin.ID_CLIENTE AS employerClientId,
+                RTRIM(CASE WHEN emp.ID_TIPO_IDENTIFICACION IS NULL THEN '' ELSE CONVERT(nvarchar(2), emp.ID_TIPO_IDENTIFICACION) END) AS employerIdentificationType,
+                RTRIM(ISNULL(LTRIM(RTRIM(CONVERT(nvarchar(4), ident.DESC_TIPO_IDENTIFICACION))), '')) AS employerIdentificationTypeDescription,
+                RTRIM(ISNULL(DBO.COIFX_QUITAR_CEROS(emp.NRO_IDENTIFICACION), '')) AS employerIdentification,
+                RTRIM(ISNULL(LTRIM(RTRIM(emp.NOMBRE_CLIENTE)), '')) AS employerName,
+                RTRIM(CASE
+                    WHEN (SELECT E.desc_estado_matricula FROM lu_estado_matricula E WITH(NOLOCK) WHERE E.id_estado_matricula = mat.id_estado_matricula) = 'Inscrip activa' THEN 'INSCRIP ACTIVA'
+                    WHEN (SELECT E.desc_estado_matricula FROM lu_estado_matricula E WITH(NOLOCK) WHERE E.id_estado_matricula = mat.id_estado_matricula) = 'Inscrip canc' THEN 'CANCELADA'
+                    ELSE UPPER((SELECT E.desc_estado_matricula FROM lu_estado_matricula E WITH(NOLOCK) WHERE E.id_estado_matricula = mat.id_estado_matricula))
+                END) AS status,
+                RTRIM(UPPER((SELECT desc_tipo_sociedad FROM lu_tipo_sociedad WITH(NOLOCK) WHERE id_tipo_sociedad = mat.id_tipo_sociedad))) AS societyType,
+                mat.id_importador_exportador AS importerExporterId,
+                RTRIM('4') AS chamberId,
+                RTRIM('BOGOTA') AS chamberName,
+                RTRIM(mat.NRO_MATRICULA) AS registrationNumber,
+                vin.ID_CARGO AS positionId,
+                RTRIM(ISNULL(
+                    (SELECT SUBSTRING(RTRIM(LTRIM(G.Des_Cargo)), 1, 40) FROM lu_Cargos G WHERE CONVERT(nvarchar(5), G.Id_Cargo) = SUBSTRING(vin.id_cargo, 3, 4)),
+                    (ISNULL((SELECT Q.desc_tipo_vinculo FROM lu_tipo_vinculo Q WITH(NOLOCK) WHERE Q.id_tipo_vinculo = vin.id_tipo_vinculo), ''))
+                )) AS positionDescription,
+                vin.ID_TIPO_VINCULO AS linkTypeId,
+                RTRIM(tvinc.DESC_TIPO_VINCULO) AS linkTypeDescription,
+                RTRIM(CONVERT(nvarchar(10), vin.FECHA_REGISTRO_VINCULO, 103)) AS linkDate,
+                ROW_NUMBER() OVER(PARTITION BY cli.ID_CLIENTE, vin.ID_CLIENTE, mat.NRO_MATRICULA, vin.ID_CARGO, vin.ID_TIPO_VINCULO ORDER BY vin.FECHA_REGISTRO_VINCULO DESC) as rn
+            FROM LU_CLIENTE cli WITH(NOLOCK)
+            INNER JOIN LU_VINCULADOS vin WITH(NOLOCK)
+                ON cli.ID_CLIENTE = vin.ID_CLIENTE_VINCULADOR
+            INNER JOIN LU_MATRICULADO mat WITH(NOLOCK)
+                ON mat.ID_MATRICULADO = vin.ID_MATRICULADO
+            INNER JOIN FT_CERTIFICAS certifica
+                ON mat.id_matriculado = certifica.id_matriculado
+            INNER JOIN LU_CLIENTE emp WITH(NOLOCK)
+                ON emp.ID_CLIENTE = mat.ID_CLIENTE
+            LEFT JOIN LU_TIPO_IDENTIFICACION ident WITH(NOLOCK)
+                ON ident.ID_TIPO_IDENTIFICACION = emp.ID_TIPO_IDENTIFICACION
+            LEFT JOIN LU_CARGOS carg WITH(NOLOCK)
+                ON CAST(ISNULL(vin.ID_CARGO, 0) AS NUMERIC) = carg.ID_CARGO
+            LEFT JOIN LU_TIPO_VINCULO tvinc WITH(NOLOCK)
+                ON vin.ID_TIPO_VINCULO = tvinc.ID_TIPO_VINCULO
+            WHERE 1 = 1
+                AND cli.ID_TIPO_IDENTIFICACION = CASE WHEN :identificationType = '0' THEN cli.ID_TIPO_IDENTIFICACION ELSE :identificationType END
+                AND cli.NRO_IDENTIFICACION = :identificationNumber
+                AND certifica.txt_certifica LIKE '%' + CAST(TRIM(DBO.COIFX_QUITAR_CEROS(:identificationNumber)) AS nvarchar(50)) + '%'
+                AND mat.id_estado_matricula NOT IN (2, 9)
+                AND (
+                    mat.id_tipo_sociedad NOT IN (16, 4, 7)
+                    OR (mat.id_tipo_sociedad IN (16)
+                        AND tvinc.id_tipo_vinculo NOT IN (SELECT id_tipo_vinculo FROM LU_TIPO_VINCULO WHERE desc_tipo_vinculo LIKE '%socio%' OR id_tipo_vinculo = 1140)
+                    )
+                    OR (mat.id_tipo_sociedad IN (4)
+                        AND tvinc.id_tipo_vinculo NOT IN (SELECT id_tipo_vinculo FROM LU_TIPO_VINCULO WHERE desc_tipo_vinculo LIKE '%socio%' OR id_tipo_vinculo = 1140)
+                    )
+                    OR (mat.id_tipo_sociedad IN (7)
+                        AND tvinc.id_tipo_vinculo NOT IN (SELECT id_tipo_vinculo FROM LU_TIPO_VINCULO WHERE desc_tipo_vinculo LIKE '%socio%' OR id_tipo_vinculo = 1140)
+                    )
                 )
-                OR (mat.id_tipo_sociedad IN (4)
-                    AND tvinc.id_tipo_vinculo NOT IN (SELECT id_tipo_vinculo FROM LU_TIPO_VINCULO WHERE desc_tipo_vinculo LIKE '%socio%' OR id_tipo_vinculo = 1140)
-                )
-                OR (mat.id_tipo_sociedad IN (7)
-                    AND tvinc.id_tipo_vinculo NOT IN (SELECT id_tipo_vinculo FROM LU_TIPO_VINCULO WHERE desc_tipo_vinculo LIKE '%socio%' OR id_tipo_vinculo = 1140)
-                )
-            )
- GROUP BY
-            cli.ID_CLIENTE,
-            cli.ID_TIPO_IDENTIFICACION,
-            cli.NRO_IDENTIFICACION,
-            cli.NOMBRE_CLIENTE,
-            vin.ID_CLIENTE,
-            emp.ID_TIPO_IDENTIFICACION,
-            ident.DESC_TIPO_IDENTIFICACION,
-            emp.NRO_IDENTIFICACION,
-            emp.NOMBRE_CLIENTE,
-            mat.id_estado_matricula,
-            mat.id_tipo_sociedad,
-            mat.id_importador_exportador,
-            mat.NRO_MATRICULA,
-            vin.ID_CARGO,
-            vin.id_tipo_vinculo,
-            tvinc.DESC_TIPO_VINCULO,
-            vin.FECHA_REGISTRO_VINCULO
+        )
+        SELECT * FROM LinkedVerificationCTE WHERE rn = 1
         """, nativeQuery = true)
     List<LinkedVerificationEntity> findLinkedVerification(
             @Param("identificationType") String identificationType,
