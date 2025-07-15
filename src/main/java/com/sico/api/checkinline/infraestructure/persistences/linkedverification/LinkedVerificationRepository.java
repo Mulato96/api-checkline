@@ -45,8 +45,6 @@ public interface LinkedVerificationRepository extends JpaRepository<LinkedVerifi
             ON cli.ID_CLIENTE = vin.ID_CLIENTE_VINCULADOR
         INNER JOIN LU_MATRICULADO mat WITH(NOLOCK)
             ON mat.ID_MATRICULADO = vin.ID_MATRICULADO
-        INNER JOIN FT_CERTIFICAS certifica
-            ON mat.id_matriculado = certifica.id_matriculado
         INNER JOIN LU_CLIENTE emp WITH(NOLOCK)
             ON emp.ID_CLIENTE = mat.ID_CLIENTE
         LEFT JOIN LU_TIPO_IDENTIFICACION ident WITH(NOLOCK) 
@@ -58,7 +56,12 @@ public interface LinkedVerificationRepository extends JpaRepository<LinkedVerifi
         WHERE 1 = 1
             AND cli.ID_TIPO_IDENTIFICACION = CASE WHEN :identificationType = '0' THEN cli.ID_TIPO_IDENTIFICACION ELSE :identificationType END
             AND cli.NRO_IDENTIFICACION = :identificationNumber
-            AND certifica.txt_certifica LIKE '%' + CAST(TRIM(DBO.COIFX_QUITAR_CEROS(:identificationNumber)) AS nvarchar(50)) + '%'
+            AND EXISTS (
+                SELECT 1
+                FROM FT_CERTIFICAS certifica
+                WHERE mat.id_matriculado = certifica.id_matriculado
+                AND certifica.txt_certifica LIKE '%' + CAST(TRIM(DBO.COIFX_QUITAR_CEROS(:identificationNumber)) AS nvarchar(50)) + '%'
+            )
             AND mat.id_estado_matricula NOT IN (2, 9)
             AND (
                 mat.id_tipo_sociedad NOT IN (16, 4, 7)
