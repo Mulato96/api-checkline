@@ -45,6 +45,8 @@ public interface LinkedVerificationRepository extends JpaRepository<LinkedVerifi
             ON cli.ID_CLIENTE = vin.ID_CLIENTE_VINCULADOR
         INNER JOIN LU_MATRICULADO mat WITH(NOLOCK)
             ON mat.ID_MATRICULADO = vin.ID_MATRICULADO
+        INNER JOIN FT_CERTIFICAS certifica
+            ON mat.id_matriculado = certifica.id_matriculado
         INNER JOIN LU_CLIENTE emp WITH(NOLOCK)
             ON emp.ID_CLIENTE = mat.ID_CLIENTE
         LEFT JOIN LU_TIPO_IDENTIFICACION ident WITH(NOLOCK)
@@ -56,6 +58,7 @@ public interface LinkedVerificationRepository extends JpaRepository<LinkedVerifi
         WHERE 1 = 1
             AND cli.ID_TIPO_IDENTIFICACION = CASE WHEN :identificationType = '0' THEN cli.ID_TIPO_IDENTIFICACION ELSE :identificationType END
             AND cli.NRO_IDENTIFICACION = :identificationNumber
+            AND certifica.txt_certifica LIKE '%' + CAST(TRIM(DBO.COIFX_QUITAR_CEROS(:identificationNumber)) AS nvarchar(50)) + '%'
             AND mat.id_estado_matricula NOT IN (2, 9)
             AND (
                 mat.id_tipo_sociedad NOT IN (16, 4, 7)
@@ -69,6 +72,24 @@ public interface LinkedVerificationRepository extends JpaRepository<LinkedVerifi
                     AND tvinc.id_tipo_vinculo NOT IN (SELECT id_tipo_vinculo FROM LU_TIPO_VINCULO WHERE desc_tipo_vinculo LIKE '%socio%' OR id_tipo_vinculo = 1140)
                 )
             )
+        GROUP BY
+            cli.ID_CLIENTE,
+            cli.ID_TIPO_IDENTIFICACION,
+            cli.NRO_IDENTIFICACION,
+            cli.NOMBRE_CLIENTE,
+            vin.ID_CLIENTE,
+            emp.ID_TIPO_IDENTIFICACION,
+            ident.DESC_TIPO_IDENTIFICACION,
+            emp.NRO_IDENTIFICACION,
+            emp.NOMBRE_CLIENTE,
+            mat.id_estado_matricula,
+            mat.id_tipo_sociedad,
+            mat.id_importador_exportador,
+            mat.NRO_MATRICULA,
+            vin.ID_CARGO,
+            vin.id_tipo_vinculo,
+            tvinc.DESC_TIPO_VINCULO,
+            vin.FECHA_REGISTRO_VINCULO
         """, nativeQuery = true)
     List<LinkedVerificationEntity> findLinkedVerification(
             @Param("identificationType") String identificationType,
