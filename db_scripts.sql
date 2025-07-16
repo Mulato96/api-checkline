@@ -1,0 +1,10 @@
+CREATE INDEX idx_pr_cc_clientes_num_cliente ON dbo.PR_CC_CLIENTES(NUM_CLIENTE);
+CREATE INDEX idx_pr_proponentes_num_proponente ON dbo.PR_PROPONENTES(NUM_PROPONENTE);
+CREATE INDEX idx_pr_capacidad_organizacional_num_proponente ON dbo.PR_CAPACIDAD_ORGANIZACIONAL(NUM_PROPONENTE);
+CREATE INDEX idx_pr_inf_financiera_num_proponente ON dbo.PR_INF_FINANCIERA(NUM_PROPONENTE);
+CREATE INDEX idx_pr_capacidad_financiera_num_proponente ON dbo.PR_CAPACIDAD_FINANCIERA(NUM_PROPONENTE);
+CREATE INDEX idx_pr_clasificacion_num_proponente ON dbo.PR_CLASIFICACION(NUM_PROPONENTE);
+CREATE INDEX idx_pr_experiencia_num_proponente ON dbo.PR_EXPERIENCIA(NUM_PROPONENTE);
+CREATE INDEX idx_pr_experiencia_clasificacion_num_proponente ON dbo.PR_EXPERIENCIA_CLASIFICACION(NUM_PROPONENTE);
+CREATE INDEX idx_pr_libros_num_proponente ON dbo.PR_LIBROS(NUM_PROPONENTE);
+CREATE INDEX idx_pr_tamano_empresa_num_proponente ON dbo.PR_TAMANO_EMPRESA(NUM_PROPONENTE);
